@@ -30,6 +30,7 @@ namespace SmartRetailApi.Controllers
         /// Código 200 OK si todo está correcto, o 500 si falla la conexión a la base de datos.
         /// </returns>
         [HttpGet("/healthz")]
+        [HttpHead("/healthz")]
         [AllowAnonymous]
         public async Task<IActionResult> HealthCheck()
         {
