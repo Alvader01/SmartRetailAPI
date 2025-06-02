@@ -4,8 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using SmartRetailApi.Data;
 using SmartRetailApi.Models;
 
-[Authorize]
-[ApiController]
+[Authorize] // Requiere autenticación para todas las acciones
+[ApiController] // Controlador API
 [Route("api/[controller]")]
 public class ClientesController : ControllerBase
 {
@@ -26,6 +26,27 @@ public class ClientesController : ControllerBase
         await _context.Clientes.ToListAsync();
 
     /// <summary>
+    /// Obtiene un cliente específico por su clave compuesta ClienteId y TiendaId.
+    /// </summary>
+    /// <param name="clienteId">Identificador del cliente.</param>
+    /// <param name="tiendaId">Identificador de la tienda.</param>
+    /// <returns>Cliente encontrado o NotFound si no existe.</returns>
+    [HttpGet("{clienteId}/{tiendaId}")]
+    public async Task<ActionResult<Cliente>> Get(int clienteId, string tiendaId)
+    {
+        var cliente = await _context.Clientes
+            .FirstOrDefaultAsync(c => c.ClienteId == clienteId && c.TiendaId == tiendaId);
+
+        if (cliente == null)
+        {
+            return NotFound();
+        }
+
+        return Ok(cliente); // Devolver Ok explícitamente es buena práctica
+    }
+
+
+    /// <summary>
     /// Crea un nuevo cliente en la base de datos.
     /// </summary>
     /// <param name="cliente">Objeto Cliente con los datos a insertar.</param>
@@ -33,8 +54,16 @@ public class ClientesController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<Cliente>> Post(Cliente cliente)
     {
+        if (string.IsNullOrEmpty(cliente.TiendaId))
+        {
+            return BadRequest("TiendaId es obligatorio.");
+        }
+
+        // No asignar ClienteId manualmente, la DB lo genera (autoincremental)
         _context.Clientes.Add(cliente);
         await _context.SaveChangesAsync();
-        return CreatedAtAction(nameof(Get), new { id = cliente.ClienteId }, cliente);
+
+        // Devuelve 201 Created con la ruta completa a este recurso
+        return CreatedAtAction(nameof(Get), new { clienteId = cliente.ClienteId, tiendaId = cliente.TiendaId }, cliente);
     }
 }

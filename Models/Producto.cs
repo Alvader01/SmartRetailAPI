@@ -1,4 +1,7 @@
-﻿namespace SmartRetailApi.Models
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace SmartRetailApi.Models
 {
     /// <summary>
     /// Representa un producto disponible en la tienda, con su precio y stock.

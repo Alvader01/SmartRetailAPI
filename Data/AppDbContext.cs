@@ -8,30 +8,11 @@ namespace SmartRetailApi.Data
     /// </summary>
     public class AppDbContext : DbContext
     {
-        /// <summary>
-        /// Constructor que recibe las opciones de configuración del contexto.
-        /// </summary>
-        /// <param name="options">Opciones para configurar el contexto de base de datos.</param>
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
-        /// <summary>
-        /// Representa la tabla Productos en la base de datos.
-        /// </summary>
         public DbSet<Producto> Productos { get; set; }
-
-        /// <summary>
-        /// Representa la tabla Ventas en la base de datos.
-        /// </summary>
         public DbSet<Venta> Ventas { get; set; }
-
-        /// <summary>
-        /// Representa la tabla DetallesVenta en la base de datos.
-        /// </summary>
         public DbSet<DetalleVenta> DetallesVenta { get; set; }
-
-        /// <summary>
-        /// Representa la tabla Clientes en la base de datos.
-        /// </summary>
         public DbSet<Cliente> Clientes { get; set; }
 
         /// <summary>
@@ -43,10 +24,13 @@ namespace SmartRetailApi.Data
             // Configuración de la entidad Producto
             modelBuilder.Entity<Producto>(entity =>
             {
-                entity.ToTable("producto");  // Nombre de tabla en la BD
-                entity.HasKey(e => new { e.ProductoId, e.TiendaId }); // Clave primaria compuesta
+                entity.ToTable("producto");
+                entity.HasKey(e => e.ProductoId); // Clave primaria simple
 
-                entity.Property(e => e.ProductoId).HasColumnName("producto_id");
+                entity.Property(e => e.ProductoId)
+                      .HasColumnName("producto_id")
+                      .ValueGeneratedOnAdd(); // Autoincrement
+
                 entity.Property(e => e.TiendaId).HasColumnName("tiendaid");
                 entity.Property(e => e.Nombre).HasColumnName("nombre");
                 entity.Property(e => e.Precio).HasColumnName("precio");
@@ -57,9 +41,12 @@ namespace SmartRetailApi.Data
             modelBuilder.Entity<Cliente>(entity =>
             {
                 entity.ToTable("cliente");
-                entity.HasKey(e => new { e.ClienteId, e.TiendaId }); // Clave primaria compuesta
+                entity.HasKey(e => e.ClienteId); // Clave primaria simple
 
-                entity.Property(e => e.ClienteId).HasColumnName("cliente_id");
+                entity.Property(e => e.ClienteId)
+                      .HasColumnName("cliente_id")
+                      .ValueGeneratedOnAdd(); // Autoincrement
+
                 entity.Property(e => e.TiendaId).HasColumnName("tiendaid");
                 entity.Property(e => e.Nombre).HasColumnName("nombre");
                 entity.Property(e => e.Correo).HasColumnName("correo");
@@ -70,18 +57,22 @@ namespace SmartRetailApi.Data
             modelBuilder.Entity<Venta>(entity =>
             {
                 entity.ToTable("venta");
-                entity.HasKey(e => new { e.VentaId, e.TiendaId }); // Clave primaria compuesta
+                entity.HasKey(e => e.VentaId); // Clave primaria simple
 
-                entity.Property(e => e.VentaId).HasColumnName("venta_id");
+                entity.Property(e => e.VentaId)
+                      .HasColumnName("venta_id")
+                      .ValueGeneratedOnAdd(); // Autoincrement
+
                 entity.Property(e => e.TiendaId).HasColumnName("tiendaid");
                 entity.Property(e => e.Fecha).HasColumnName("fecha");
                 entity.Property(e => e.Total).HasColumnName("total");
                 entity.Property(e => e.ClienteId).HasColumnName("cliente_id");
 
-                // Relación entre Venta y Cliente mediante clave foránea compuesta
+                // Relación entre Venta y Cliente
                 entity.HasOne(e => e.Cliente)
                       .WithMany()
-                      .HasForeignKey(e => new { e.ClienteId, e.TiendaId });
+                      .HasForeignKey(e => e.ClienteId);
+                // Puedes agregar .HasPrincipalKey(c => c.ClienteId) si lo necesitas
             });
 
             // Configuración de la entidad DetalleVenta
@@ -99,12 +90,12 @@ namespace SmartRetailApi.Data
                 // Relación entre DetalleVenta y Venta
                 entity.HasOne(e => e.Venta)
                       .WithMany(v => v.DetallesVenta)
-                      .HasForeignKey(e => new { e.VentaId, e.TiendaId });
+                      .HasForeignKey(e => e.VentaId);
 
                 // Relación entre DetalleVenta y Producto
                 entity.HasOne(e => e.Producto)
                       .WithMany()
-                      .HasForeignKey(e => new { e.ProductoId, e.TiendaId });
+                      .HasForeignKey(e => e.ProductoId);
             });
         }
     }
