@@ -4,8 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using SmartRetailApi.Data;
 using SmartRetailApi.Models;
 
-[Authorize] // Requiere autenticación para todas las acciones
-[ApiController] // Controlador API
+[Authorize] // Requiere autenticación para todas las acciones del controlador
+[ApiController] // Marca la clase como controlador API con funcionalidades automáticas
 [Route("api/[controller]")]
 public class ClientesController : ControllerBase
 {
@@ -18,7 +18,8 @@ public class ClientesController : ControllerBase
     public ClientesController(AppDbContext context) => _context = context;
 
     /// <summary>
-    /// Obtiene la lista completa de clientes.
+    /// Obtiene la lista completa de clientes en todas las tiendas.
+    /// Considera que esto puede devolver muchos datos si la base es grande.
     /// </summary>
     /// <returns>Lista de clientes en formato IEnumerable.</returns>
     [HttpGet]
@@ -27,12 +28,13 @@ public class ClientesController : ControllerBase
 
     /// <summary>
     /// Obtiene un cliente específico por su clave compuesta ClienteId y TiendaId.
+    /// Esta combinación debe ser única para identificar el cliente.
     /// </summary>
     /// <param name="clienteId">Identificador del cliente.</param>
     /// <param name="tiendaId">Identificador de la tienda.</param>
     /// <returns>Cliente encontrado o NotFound si no existe.</returns>
     [HttpGet("{clienteId}/{tiendaId}")]
-    public async Task<ActionResult<Cliente>> Get(int clienteId, string tiendaId)
+    public async Task<ActionResult<Cliente>> Get(Guid clienteId, string tiendaId)
     {
         var cliente = await _context.Clientes
             .FirstOrDefaultAsync(c => c.ClienteId == clienteId && c.TiendaId == tiendaId);
@@ -42,15 +44,15 @@ public class ClientesController : ControllerBase
             return NotFound();
         }
 
-        return Ok(cliente); // Devolver Ok explícitamente es buena práctica
+        return Ok(cliente); // Devolver Ok explícitamente es buena práctica para claridad
     }
 
-
     /// <summary>
-    /// Crea un nuevo cliente en la base de datos.
+    /// Crea uno o varios clientes nuevos en la base de datos.
+    /// Se valida que la lista no esté vacía y que cada cliente tenga TiendaId definido.
     /// </summary>
-    /// <param name="cliente">Objeto Cliente con los datos a insertar.</param>
-    /// <returns>Cliente creado con código HTTP 201 y ubicación del recurso.</returns>
+    /// <param name="clientes">Lista de objetos Cliente con los datos a insertar.</param>
+    /// <returns>Resultado con número de clientes insertados o error si la petición es inválida.</returns>
     [HttpPost]
     public async Task<ActionResult> Post([FromBody] List<Cliente> clientes)
     {
@@ -60,10 +62,12 @@ public class ClientesController : ControllerBase
         if (clientes.Any(c => string.IsNullOrEmpty(c.TiendaId)))
             return BadRequest("Todos los clientes deben tener TiendaId.");
 
+        // Se podría agregar validación para evitar duplicados en la base antes de insertar
+
         _context.Clientes.AddRange(clientes);
         await _context.SaveChangesAsync();
 
+        // Retorna un resultado con la cantidad de registros insertados
         return Ok(new { insertedCount = clientes.Count });
     }
-
 }

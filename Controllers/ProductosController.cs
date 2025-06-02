@@ -4,8 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using SmartRetailApi.Data;
 using SmartRetailApi.Models;
 
-[Authorize]
-[ApiController]
+[Authorize] // Requiere que el usuario esté autenticado para acceder a los endpoints
+[ApiController] // Marca la clase como controlador API
 [Route("api/[controller]")]
 public class ProductosController : ControllerBase
 {
@@ -22,6 +22,7 @@ public class ProductosController : ControllerBase
 
     /// <summary>
     /// Obtiene todos los productos almacenados en la base de datos.
+    /// Considerar paginación o filtros si la tabla es muy grande.
     /// </summary>
     /// <returns>Lista de objetos Producto.</returns>
     [HttpGet]
@@ -29,14 +30,16 @@ public class ProductosController : ControllerBase
     {
         return await _context.Productos.ToListAsync();
     }
+
     /// <summary>
     /// Obtiene un producto específico por su ProductoId y TiendaId.
+    /// La combinación de estos dos campos identifica unívocamente cada producto.
     /// </summary>
     /// <param name="id">Identificador del producto (ProductoId).</param>
     /// <param name="tiendaId">Identificador de la tienda (TiendaId).</param>
     /// <returns>Producto encontrado o NotFound si no existe.</returns>
     [HttpGet("{id}/{tiendaId}")]
-    public async Task<ActionResult<Producto>> Get(int id, string tiendaId)
+    public async Task<ActionResult<Producto>> Get(Guid id, string tiendaId)
     {
         var producto = await _context.Productos
             .FirstOrDefaultAsync(p => p.ProductoId == id && p.TiendaId == tiendaId);
@@ -46,14 +49,15 @@ public class ProductosController : ControllerBase
             return NotFound();
         }
 
-        return Ok(producto);
+        return Ok(producto); // Retorna explícitamente código 200 OK con el producto
     }
 
     /// <summary>
-    /// Crea un nuevo producto en la base de datos.
+    /// Crea uno o varios productos nuevos en la base de datos.
+    /// Valida que la lista no sea nula o vacía y que todos los productos tengan TiendaId.
     /// </summary>
-    /// <param name="producto">Objeto Producto enviado desde el cliente.</param>
-    /// <returns>Producto creado y la ubicación para consultarlo.</returns>
+    /// <param name="productos">Lista de objetos Producto enviados desde el cliente.</param>
+    /// <returns>Cantidad de productos insertados o error si la petición es inválida.</returns>
     [HttpPost]
     public async Task<ActionResult> Post([FromBody] List<Producto> productos)
     {
@@ -66,7 +70,7 @@ public class ProductosController : ControllerBase
         _context.Productos.AddRange(productos);
         await _context.SaveChangesAsync();
 
+        // Retorna la cantidad de productos insertados para confirmar la operación
         return Ok(new { insertedCount = productos.Count });
     }
-
 }

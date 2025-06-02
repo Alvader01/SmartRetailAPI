@@ -19,6 +19,7 @@ public class VentasController : ControllerBase
 
     /// <summary>
     /// Obtiene todas las ventas junto con sus detalles asociados.
+    /// Considerar paginación o filtros si la tabla es muy grande para mejorar rendimiento.
     /// </summary>
     /// <returns>Lista de objetos Venta con sus detalles.</returns>
     [HttpGet]
@@ -27,12 +28,13 @@ public class VentasController : ControllerBase
 
     /// <summary>
     /// Obtiene una venta específica por su VentaId y TiendaId.
+    /// La combinación de VentaId y TiendaId es la clave única para identificar la venta.
     /// </summary>
     /// <param name="id">Identificador de la venta (VentaId).</param>
     /// <param name="tiendaId">Identificador de la tienda (TiendaId).</param>
     /// <returns>Venta con sus detalles o NotFound si no existe.</returns>
     [HttpGet("{id}/{tiendaId}")]
-    public async Task<ActionResult<Venta>> Get(int id, string tiendaId)
+    public async Task<ActionResult<Venta>> Get(Guid id, string tiendaId)
     {
         var venta = await _context.Ventas
             .Include(v => v.DetallesVenta) // Incluye detalles relacionados
@@ -43,15 +45,15 @@ public class VentasController : ControllerBase
             return NotFound();
         }
 
-        return Ok(venta); // Es mejor devolver Ok explícitamente
+        return Ok(venta); // Devuelve código 200 OK explícitamente
     }
 
-
     /// <summary>
-    /// Crea una nueva venta en la base de datos.
+    /// Crea una o varias nuevas ventas en la base de datos.
+    /// Valida que la lista no sea nula o vacía y que todas las ventas tengan TiendaId.
     /// </summary>
-    /// <param name="venta">Objeto Venta a insertar.</param>
-    /// <returns>Venta creada con código HTTP 201 y ubicación.</returns>
+    /// <param name="ventas">Lista de objetos Venta a insertar.</param>
+    /// <returns>Cantidad de ventas insertadas o error si la petición es inválida.</returns>
     [HttpPost]
     public async Task<ActionResult> Post([FromBody] List<Venta> ventas)
     {
@@ -64,7 +66,7 @@ public class VentasController : ControllerBase
         _context.Ventas.AddRange(ventas);
         await _context.SaveChangesAsync();
 
+        // Retorna la cantidad de ventas insertadas para confirmar la operación
         return Ok(new { insertedCount = ventas.Count });
     }
-
 }

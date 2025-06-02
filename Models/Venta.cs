@@ -7,16 +7,19 @@ namespace SmartRetailApi.Models
 {
     /// <summary>
     /// Representa una venta realizada en la tienda, incluyendo fecha, cliente y detalles.
+    /// La clave primaria está compuesta por VentaId y TiendaId.
     /// </summary>
     public class Venta
     {
         /// <summary>
-        /// Identificador único de la venta.
+        /// Identificador único de la venta dentro de una tienda.
+        /// Parte de la clave primaria compuesta.
         /// </summary>
-        public int VentaId { get; set; }
+        public Guid VentaId { get; set; }
 
         /// <summary>
         /// Identificador de la tienda donde se realizó la venta.
+        /// Parte de la clave primaria compuesta.
         /// </summary>
         public string TiendaId { get; set; } = null!;
 
@@ -39,10 +42,11 @@ namespace SmartRetailApi.Models
         /// <summary>
         /// Identificador del cliente que realizó la compra.
         /// </summary>
-        public int ClienteId { get; set; }
+        public Guid ClienteId { get; set; }
 
         /// <summary>
         /// Referencia al cliente que realizó la venta.
+        /// La relación debe mapearse considerando ClienteId y TiendaId.
         /// </summary>
         public Cliente? Cliente { get; set; }
 

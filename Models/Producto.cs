@@ -5,16 +5,19 @@ namespace SmartRetailApi.Models
 {
     /// <summary>
     /// Representa un producto disponible en la tienda, con su precio y stock.
+    /// La clave primaria está compuesta por ProductoId y TiendaId.
     /// </summary>
     public class Producto
     {
         /// <summary>
-        /// Identificador único del producto.
+        /// Identificador único del producto dentro de una tienda.
+        /// Parte de la clave primaria compuesta.
         /// </summary>
-        public int ProductoId { get; set; }
+        public Guid ProductoId { get; set; }
 
         /// <summary>
         /// Identificador de la tienda que vende el producto.
+        /// Parte de la clave primaria compuesta.
         /// </summary>
         public string TiendaId { get; set; } = null!;
 

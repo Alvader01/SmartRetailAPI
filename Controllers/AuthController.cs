@@ -28,6 +28,7 @@ namespace SmartRetailApi.Controllers
         /// <summary>
         /// Endpoint para login de usuario.
         /// Valida las credenciales recibidas contra las credenciales almacenadas en la cadena de conexión.
+        /// Este método puede adaptarse para validar contra otros orígenes, como base de datos o servicios externos.
         /// </summary>
         /// <param name="request">Objeto con usuario y contraseña enviados desde el cliente.</param>
         /// <returns>JWT en caso de éxito o respuesta 401 Unauthorized si falla.</returns>
@@ -41,6 +42,7 @@ namespace SmartRetailApi.Controllers
             var builder = new Npgsql.NpgsqlConnectionStringBuilder(connectionString);
 
             // Compara las credenciales recibidas con las almacenadas en la cadena de conexión
+            // NOTA: Para producción, se recomienda validar contra una tabla de usuarios cifrados
             if (request.Username == builder.Username && request.Password == builder.Password)
             {
                 // Genera un token JWT para el usuario autenticado
@@ -49,42 +51,44 @@ namespace SmartRetailApi.Controllers
             }
             else
             {
-                // Si las credenciales no coinciden, devuelve un error 401
+                // Si las credenciales no coinciden, devuelve un error 401 Unauthorized
                 return Unauthorized("Usuario o contraseña incorrectos");
             }
         }
 
         /// <summary>
         /// Método privado que genera un token JWT para el usuario dado.
+        /// El token incluye el nombre de usuario como claim y tiene un tiempo de expiración configurable.
         /// </summary>
         /// <param name="username">Nombre de usuario para incluir en el token.</param>
         /// <returns>Token JWT en formato string.</returns>
         private string GenerateJwtToken(string username)
         {
-            // Obtiene la configuración JWT de appsettings.json
+            // Obtiene la configuración JWT de appsettings.json (Key, Issuer, Audience, Duración)
             var jwtSettings = _configuration.GetSection("Jwt");
 
-            // Clave secreta para firmar el token
+            // Clave secreta para firmar el token (debe mantenerse segura y fuera del código fuente)
             var key = Encoding.ASCII.GetBytes(jwtSettings["Key"]);
 
             // Crea el manejador para tokens JWT
             var tokenHandler = new JwtSecurityTokenHandler();
 
-            // Define las propiedades y reclamaciones del token
+            // Define las propiedades y reclamaciones del token JWT
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(new[]
                 {
                     new Claim(ClaimTypes.Name, username)
+                    // Se pueden añadir más claims aquí, como roles, permisos, tienda asociada, etc.
                 }),
-                // Tiempo de expiración del token (en minutos)
+                // Tiempo de expiración del token (en minutos) configurado en appsettings.json
                 Expires = DateTime.UtcNow.AddMinutes(double.Parse(jwtSettings["DurationInMinutes"])),
                 Issuer = jwtSettings["Issuer"],
                 Audience = jwtSettings["Audience"],
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
             };
 
-            // Crea el token con el descriptor configurado
+            // Crea el token JWT con el descriptor configurado
             var token = tokenHandler.CreateToken(tokenDescriptor);
 
             // Devuelve el token en formato string para ser usado por el cliente
@@ -93,16 +97,17 @@ namespace SmartRetailApi.Controllers
 
         /// <summary>
         /// Clase que representa el cuerpo de la petición de login.
+        /// Contiene las propiedades Username y Password.
         /// </summary>
         public class LoginRequest
         {
             /// <summary>
-            /// Nombre de usuario.
+            /// Nombre de usuario enviado por el cliente.
             /// </summary>
             public string Username { get; set; } = null!;
 
             /// <summary>
-            /// Contraseña del usuario.
+            /// Contraseña del usuario enviada por el cliente.
             /// </summary>
             public string Password { get; set; } = null!;
         }
