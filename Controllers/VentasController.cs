@@ -49,12 +49,12 @@ public class VentasController : ControllerBase
     }
 
     /// <summary>
-    /// Crea una o varias nuevas ventas en la base de datos.
+    /// Crea o actualiza una o varias ventas en la base de datos.
     /// Valida que la lista no sea nula o vacía y que todas las ventas tengan TiendaId.
-    /// Verifica que no existan ventas con la misma clave compuesta para evitar duplicados.
+    /// Realiza un upsert: inserta nuevas ventas y actualiza las existentes (incluyendo sus detalles).
     /// </summary>
-    /// <param name="ventas">Lista de objetos Venta a insertar.</param>
-    /// <returns>Cantidad de ventas insertadas o error si la petición es inválida o hay conflictos.</returns>
+    /// <param name="ventas">Lista de objetos Venta a insertar o actualizar.</param>
+    /// <returns>Cantidad de ventas insertadas o actualizadas, o error si la petición es inválida.</returns>
     [HttpPost]
     public async Task<ActionResult> Post([FromBody] List<Venta> ventas)
     {
@@ -64,32 +64,44 @@ public class VentasController : ControllerBase
         if (ventas.Any(v => string.IsNullOrEmpty(v.TiendaId)))
             return BadRequest("Todas las ventas deben tener TiendaId.");
 
-        // Extrae las claves compuestas para comparar con la base de datos
         var claves = ventas.Select(v => new { v.VentaId, v.TiendaId }).ToList();
-
         var ventaIds = claves.Select(k => k.VentaId).Distinct().ToList();
         var tiendaIds = claves.Select(k => k.TiendaId).Distinct().ToList();
 
-        // Consulta ventas existentes para evitar insertar duplicados
         var existentes = await _context.Ventas
+            .Include(v => v.DetallesVenta)
             .Where(v => ventaIds.Contains(v.VentaId) && tiendaIds.Contains(v.TiendaId))
             .ToListAsync();
 
-        // Busca claves que ya existen para evitar conflictos
-        var conflictos = existentes.Where(e => claves.Any(k =>
-            k.VentaId == e.VentaId &&
-            k.TiendaId == e.TiendaId)).ToList();
-
-        if (conflictos.Any())
+        foreach (var venta in ventas)
         {
-            // Retorna error 409 indicando que ya existen ventas con las claves proporcionadas
-            return Conflict("Ya existen ventas con algunas de las claves proporcionadas.");
+            var existente = existentes
+                .FirstOrDefault(e => e.VentaId == venta.VentaId && e.TiendaId == venta.TiendaId);
+
+            if (existente == null)
+            {
+                // No existe: agregar nueva venta
+                _context.Ventas.Add(venta);
+            }
+            else
+            {
+                // Existe: actualizar campos
+                existente.Fecha = venta.Fecha;
+                existente.Total = venta.Total;
+                existente.ClienteId = venta.ClienteId;
+
+                // Actualizar detalles: eliminar antiguos y agregar nuevos
+                if (existente.DetallesVenta != null)
+                    _context.DetallesVenta.RemoveRange(existente.DetallesVenta);
+
+                if (venta.DetallesVenta != null)
+                    existente.DetallesVenta = venta.DetallesVenta;
+            }
         }
 
-        _context.Ventas.AddRange(ventas);
         await _context.SaveChangesAsync();
 
-        // Retorna la cantidad de ventas insertadas para confirmar la operación
-        return Ok(new { insertedCount = ventas.Count });
+        return Ok(new { upsertedCount = ventas.Count });
     }
+
 }
