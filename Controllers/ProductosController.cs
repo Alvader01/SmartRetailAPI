@@ -55,15 +55,18 @@ public class ProductosController : ControllerBase
     /// <param name="producto">Objeto Producto enviado desde el cliente.</param>
     /// <returns>Producto creado y la ubicación para consultarlo.</returns>
     [HttpPost]
-    public async Task<ActionResult<Producto>> Post(Producto producto)
+    public async Task<ActionResult> Post([FromBody] List<Producto> productos)
     {
-        if (string.IsNullOrEmpty(producto.TiendaId))
-        {
-            return BadRequest("TiendaId es obligatorio.");
-        }        
-        _context.Productos.Add(producto);
-        await _context.SaveChangesAsync(); 
+        if (productos == null || productos.Count == 0)
+            return BadRequest("No se recibieron productos.");
 
-        return CreatedAtAction(nameof(Get), new { id = producto.ProductoId, tiendaId = producto.TiendaId }, producto);
+        if (productos.Any(p => string.IsNullOrEmpty(p.TiendaId)))
+            return BadRequest("Todos los productos deben tener TiendaId.");
+
+        _context.Productos.AddRange(productos);
+        await _context.SaveChangesAsync();
+
+        return Ok(new { insertedCount = productos.Count });
     }
+
 }

@@ -52,29 +52,41 @@ public class DetallesVentaController : ControllerBase
     /// <param name="detalle">Objeto DetalleVenta a insertar.</param>
     /// <returns>DetalleVenta creado con código HTTP 201 y ubicación.</returns>
     [HttpPost]
-    public async Task<ActionResult<DetalleVenta>> Post(DetalleVenta detalle)
+    public async Task<ActionResult> Post([FromBody] List<DetalleVenta> detalles)
     {
-        // Validar TiendaId obligatorio
-        if (string.IsNullOrEmpty(detalle.TiendaId))
+        if (detalles == null || detalles.Count == 0)
+            return BadRequest("No se recibieron detalles de venta.");
+
+        if (detalles.Any(d => string.IsNullOrEmpty(d.TiendaId)))
+            return BadRequest("Todos los detalles deben tener TiendaId.");
+
+        var claves = detalles.Select(d => new { d.VentaId, d.ProductoId, d.TiendaId }).ToList();
+
+        var ventaIds = claves.Select(k => k.VentaId).Distinct().ToList();
+        var productoIds = claves.Select(k => k.ProductoId).Distinct().ToList();
+        var tiendaIds = claves.Select(k => k.TiendaId).Distinct().ToList();
+
+        var existentes = await _context.DetallesVenta
+            .Where(dv => ventaIds.Contains(dv.VentaId) &&
+                         productoIds.Contains(dv.ProductoId) &&
+                         tiendaIds.Contains(dv.TiendaId))
+            .ToListAsync();
+
+        var conflictos = existentes.Where(e => claves.Any(k =>
+            k.VentaId == e.VentaId &&
+            k.ProductoId == e.ProductoId &&
+            k.TiendaId == e.TiendaId)).ToList();
+
+        if (conflictos.Any())
         {
-            return BadRequest("TiendaId es obligatorio.");
+            return Conflict("Ya existen detalles de venta con algunas de las claves proporcionadas.");
         }
 
-        // Verificar que no exista ya un detalle con la misma clave compuesta
-        var existe = await _context.DetallesVenta.AnyAsync(d =>
-            d.VentaId == detalle.VentaId &&
-            d.ProductoId == detalle.ProductoId &&
-            d.TiendaId == detalle.TiendaId);
-
-        if (existe)
-        {
-            return Conflict("Ya existe un detalle de venta con los mismos IDs.");
-        }
-
-        _context.DetallesVenta.Add(detalle);
+        _context.DetallesVenta.AddRange(detalles);
         await _context.SaveChangesAsync();
 
-        // Devuelve 201 Created con la ruta completa a este recurso
-        return CreatedAtAction(nameof(Get), new { ventaId = detalle.VentaId, productoId = detalle.ProductoId, tiendaId = detalle.TiendaId }, detalle);
+        return Ok(new { insertedCount = detalles.Count });
     }
+
+
 }

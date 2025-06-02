@@ -53,19 +53,18 @@ public class VentasController : ControllerBase
     /// <param name="venta">Objeto Venta a insertar.</param>
     /// <returns>Venta creada con código HTTP 201 y ubicación.</returns>
     [HttpPost]
-    public async Task<ActionResult<Venta>> Post(Venta venta)
+    public async Task<ActionResult> Post([FromBody] List<Venta> ventas)
     {
-        // Validar que TiendaId sea obligatorio
-        if (string.IsNullOrEmpty(venta.TiendaId))
-        {
-            return BadRequest("TiendaId es obligatorio.");
-        }
+        if (ventas == null || ventas.Count == 0)
+            return BadRequest("No se recibieron ventas.");
 
-        // Agrega la venta al contexto sin asignar VentaId manualmente, ya que es autoincremental
-        _context.Ventas.Add(venta);
+        if (ventas.Any(v => string.IsNullOrEmpty(v.TiendaId)))
+            return BadRequest("Todas las ventas deben tener TiendaId.");
+
+        _context.Ventas.AddRange(ventas);
         await _context.SaveChangesAsync();
 
-        // Devuelve un 201 Created con la ruta para consultar la venta creada, usando la clave compuesta
-        return CreatedAtAction(nameof(Get), new { id = venta.VentaId, tiendaId = venta.TiendaId }, venta);
+        return Ok(new { insertedCount = ventas.Count });
     }
+
 }

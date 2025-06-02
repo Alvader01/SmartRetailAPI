@@ -52,18 +52,18 @@ public class ClientesController : ControllerBase
     /// <param name="cliente">Objeto Cliente con los datos a insertar.</param>
     /// <returns>Cliente creado con código HTTP 201 y ubicación del recurso.</returns>
     [HttpPost]
-    public async Task<ActionResult<Cliente>> Post(Cliente cliente)
+    public async Task<ActionResult> Post([FromBody] List<Cliente> clientes)
     {
-        if (string.IsNullOrEmpty(cliente.TiendaId))
-        {
-            return BadRequest("TiendaId es obligatorio.");
-        }
+        if (clientes == null || clientes.Count == 0)
+            return BadRequest("No se recibieron clientes.");
 
-        // No asignar ClienteId manualmente, la DB lo genera (autoincremental)
-        _context.Clientes.Add(cliente);
+        if (clientes.Any(c => string.IsNullOrEmpty(c.TiendaId)))
+            return BadRequest("Todos los clientes deben tener TiendaId.");
+
+        _context.Clientes.AddRange(clientes);
         await _context.SaveChangesAsync();
 
-        // Devuelve 201 Created con la ruta completa a este recurso
-        return CreatedAtAction(nameof(Get), new { clienteId = cliente.ClienteId, tiendaId = cliente.TiendaId }, cliente);
+        return Ok(new { insertedCount = clientes.Count });
     }
+
 }
