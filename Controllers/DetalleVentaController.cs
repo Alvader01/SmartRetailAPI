@@ -49,12 +49,12 @@ public class DetallesVentaController : ControllerBase
     }
 
     /// <summary>
-    /// Crea uno o varios detalles de venta nuevos en la base de datos.
+    /// Inserta o actualiza (upsert) una lista de detalles de venta en la base de datos.
     /// Se valida que la lista no esté vacía y que cada detalle tenga TiendaId definido.
-    /// Además, se verifica que no existan detalles con la misma clave compuesta para evitar conflictos.
+    /// Si un detalle ya existe (misma clave compuesta VentaId + ProductoId + TiendaId), se actualizan sus campos.
     /// </summary>
-    /// <param name="detalles">Lista de objetos DetalleVenta a insertar.</param>
-    /// <returns>Resultado con número de detalles insertados o error si la petición es inválida o hay conflictos.</returns>
+    /// <param name="detalles">Lista de objetos DetalleVenta a insertar o actualizar.</param>
+    /// <returns>Resultado con número de detalles procesados o error si la petición es inválida.</returns>
     [HttpPost]
     public async Task<ActionResult> Post([FromBody] List<DetalleVenta> detalles)
     {
@@ -64,36 +64,31 @@ public class DetallesVentaController : ControllerBase
         if (detalles.Any(d => string.IsNullOrEmpty(d.TiendaId)))
             return BadRequest("Todos los detalles deben tener TiendaId.");
 
-        // Extrae las claves compuestas para comparar con la base de datos
-        var claves = detalles.Select(d => new { d.VentaId, d.ProductoId, d.TiendaId }).ToList();
-
-        var ventaIds = claves.Select(k => k.VentaId).Distinct().ToList();
-        var productoIds = claves.Select(k => k.ProductoId).Distinct().ToList();
-        var tiendaIds = claves.Select(k => k.TiendaId).Distinct().ToList();
-
-        // Consulta existentes para evitar insertar duplicados
-        var existentes = await _context.DetallesVenta
-            .Where(dv => ventaIds.Contains(dv.VentaId) &&
-                         productoIds.Contains(dv.ProductoId) &&
-                         tiendaIds.Contains(dv.TiendaId))
-            .ToListAsync();
-
-        // Busca claves que ya existen para evitar conflictos
-        var conflictos = existentes.Where(e => claves.Any(k =>
-            k.VentaId == e.VentaId &&
-            k.ProductoId == e.ProductoId &&
-            k.TiendaId == e.TiendaId)).ToList();
-
-        if (conflictos.Any())
+        foreach (var detalle in detalles)
         {
-            // Retorna error 409 indicando que ya existen detalles con las claves proporcionadas
-            return Conflict("Ya existen detalles de venta con algunas de las claves proporcionadas.");
+            // Buscar detalle existente por clave compuesta
+            var detalleExistente = await _context.DetallesVenta
+                .FirstOrDefaultAsync(d => d.VentaId == detalle.VentaId &&
+                                          d.ProductoId == detalle.ProductoId &&
+                                          d.TiendaId == detalle.TiendaId);
+
+            if (detalleExistente == null)
+            {
+                // Si no existe, agregar nuevo detalle
+                _context.DetallesVenta.Add(detalle);
+            }
+            else
+            {
+                // Si existe, actualizar campos relevantes
+                detalleExistente.Cantidad = detalle.Cantidad;
+                detalleExistente.Subtotal = detalle.Subtotal;
+                // No se actualizan referencias de navegación para evitar conflictos
+            }
         }
 
-        _context.DetallesVenta.AddRange(detalles);
         await _context.SaveChangesAsync();
 
-        // Retorna el número de registros insertados como confirmación
-        return Ok(new { insertedCount = detalles.Count });
+        // Retorna un resultado con la cantidad de registros procesados (insertados + actualizados)
+        return Ok(new { processedCount = detalles.Count });
     }
 }

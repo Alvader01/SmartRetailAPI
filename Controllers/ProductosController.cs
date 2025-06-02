@@ -53,11 +53,12 @@ public class ProductosController : ControllerBase
     }
 
     /// <summary>
-    /// Crea uno o varios productos nuevos en la base de datos.
+    /// Inserta o actualiza (upsert) una lista de productos en la base de datos.
     /// Valida que la lista no sea nula o vacía y que todos los productos tengan TiendaId.
+    /// Si un producto ya existe (misma clave compuesta ProductoId + TiendaId), se actualizan sus campos.
     /// </summary>
     /// <param name="productos">Lista de objetos Producto enviados desde el cliente.</param>
-    /// <returns>Cantidad de productos insertados o error si la petición es inválida.</returns>
+    /// <returns>Cantidad de productos procesados (insertados o actualizados) o error si la petición es inválida.</returns>
     [HttpPost]
     public async Task<ActionResult> Post([FromBody] List<Producto> productos)
     {
@@ -67,10 +68,30 @@ public class ProductosController : ControllerBase
         if (productos.Any(p => string.IsNullOrEmpty(p.TiendaId)))
             return BadRequest("Todos los productos deben tener TiendaId.");
 
-        _context.Productos.AddRange(productos);
+        foreach (var producto in productos)
+        {
+            // Buscar producto existente por clave compuesta
+            var productoExistente = await _context.Productos
+                .FirstOrDefaultAsync(p => p.ProductoId == producto.ProductoId &&
+                                          p.TiendaId == producto.TiendaId);
+
+            if (productoExistente == null)
+            {
+                // Si no existe, agregar nuevo producto
+                _context.Productos.Add(producto);
+            }
+            else
+            {
+                // Si existe, actualizar campos relevantes
+                productoExistente.Nombre = producto.Nombre;
+                productoExistente.Precio = producto.Precio;
+                productoExistente.Stock = producto.Stock;
+            }
+        }
+
         await _context.SaveChangesAsync();
 
-        // Retorna la cantidad de productos insertados para confirmar la operación
-        return Ok(new { insertedCount = productos.Count });
+        // Retorna un resultado con la cantidad de registros procesados (insertados + actualizados)
+        return Ok(new { processedCount = productos.Count });
     }
 }

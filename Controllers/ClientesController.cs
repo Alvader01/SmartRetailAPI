@@ -48,11 +48,12 @@ public class ClientesController : ControllerBase
     }
 
     /// <summary>
-    /// Crea uno o varios clientes nuevos en la base de datos.
+    /// Inserta o actualiza (upsert) una lista de clientes en la base de datos.
     /// Se valida que la lista no esté vacía y que cada cliente tenga TiendaId definido.
+    /// Si un cliente ya existe (misma clave compuesta ClienteId+TiendaId), se actualizan sus campos.
     /// </summary>
-    /// <param name="clientes">Lista de objetos Cliente con los datos a insertar.</param>
-    /// <returns>Resultado con número de clientes insertados o error si la petición es inválida.</returns>
+    /// <param name="clientes">Lista de objetos Cliente con los datos a insertar o actualizar.</param>
+    /// <returns>Resultado con número de clientes insertados/actualizados o error si la petición es inválida.</returns>
     [HttpPost]
     public async Task<ActionResult> Post([FromBody] List<Cliente> clientes)
     {
@@ -62,12 +63,30 @@ public class ClientesController : ControllerBase
         if (clientes.Any(c => string.IsNullOrEmpty(c.TiendaId)))
             return BadRequest("Todos los clientes deben tener TiendaId.");
 
-        // Se podría agregar validación para evitar duplicados en la base antes de insertar
+        foreach (var cliente in clientes)
+        {
+            // Buscar cliente existente por clave compuesta
+            var clienteExistente = await _context.Clientes
+                .FirstOrDefaultAsync(c => c.ClienteId == cliente.ClienteId && c.TiendaId == cliente.TiendaId);
 
-        _context.Clientes.AddRange(clientes);
+            if (clienteExistente == null)
+            {
+                // Si no existe, agregar nuevo
+                _context.Clientes.Add(cliente);
+            }
+            else
+            {
+                // Si existe, actualizar campos relevantes
+                clienteExistente.Nombre = cliente.Nombre;
+                clienteExistente.Correo = cliente.Correo;
+                clienteExistente.Telefono = cliente.Telefono;
+                // No se actualiza la colección Ventas aquí para evitar problemas con entidades relacionadas
+            }
+        }
+
         await _context.SaveChangesAsync();
 
-        // Retorna un resultado con la cantidad de registros insertados
-        return Ok(new { insertedCount = clientes.Count });
+        // Retorna un resultado con la cantidad de registros procesados (insertados + actualizados)
+        return Ok(new { processedCount = clientes.Count });
     }
 }
