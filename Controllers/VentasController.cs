@@ -24,7 +24,11 @@ public class VentasController : ControllerBase
     /// <returns>Lista de objetos Venta con sus detalles.</returns>
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Venta>>> Get() =>
-        await _context.Ventas.Include(v => v.DetallesVenta).ToListAsync();
+    await _context.Ventas
+        .Include(v => v.Cliente) // Incluir Cliente
+        .Include(v => v.DetallesVenta!)
+            .ThenInclude(dv => dv.Producto) // Incluir Producto en cada detalle
+        .ToListAsync();
 
     /// <summary>
     /// Obtiene una venta específica por su VentaId y TiendaId.
@@ -37,15 +41,15 @@ public class VentasController : ControllerBase
     public async Task<ActionResult<Venta>> Get(Guid id, string tiendaId)
     {
         var venta = await _context.Ventas
-            .Include(v => v.DetallesVenta) // Incluye detalles relacionados
+            .Include(v => v.Cliente) // Incluir Cliente
+            .Include(v => v.DetallesVenta!)
+                .ThenInclude(dv => dv.Producto) // Incluir Producto en cada detalle
             .FirstOrDefaultAsync(v => v.VentaId == id && v.TiendaId == tiendaId);
 
         if (venta == null)
-        {
             return NotFound();
-        }
 
-        return Ok(venta); // Devuelve código 200 OK explícitamente
+        return Ok(venta);
     }
 
     /// <summary>
@@ -75,27 +79,33 @@ public class VentasController : ControllerBase
 
         foreach (var venta in ventas)
         {
+            // 🔧 Corrección clave: eliminar referencias a entidades navegacionales
+            venta.Cliente = null;
+            if (venta.DetallesVenta != null)
+            {
+                foreach (var detalle in venta.DetallesVenta)
+                {
+                    detalle.Producto = null;
+                }
+            }
+
             var existente = existentes
                 .FirstOrDefault(e => e.VentaId == venta.VentaId && e.TiendaId == venta.TiendaId);
 
             if (existente == null)
             {
-                // No existe: agregar nueva venta
                 _context.Ventas.Add(venta);
             }
             else
             {
-                // Existe: actualizar campos
                 existente.Fecha = venta.Fecha;
                 existente.Total = venta.Total;
                 existente.ClienteId = venta.ClienteId;
 
-                // Actualizar detalles: eliminar antiguos y agregar nuevos
                 if (existente.DetallesVenta != null)
                     _context.DetallesVenta.RemoveRange(existente.DetallesVenta);
 
-                if (venta.DetallesVenta != null)
-                    existente.DetallesVenta = venta.DetallesVenta;
+                existente.DetallesVenta = venta.DetallesVenta;
             }
         }
 
@@ -103,5 +113,6 @@ public class VentasController : ControllerBase
 
         return Ok(new { upsertedCount = ventas.Count });
     }
+
 
 }
