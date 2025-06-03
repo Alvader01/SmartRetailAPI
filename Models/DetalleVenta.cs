@@ -41,7 +41,6 @@ namespace SmartRetailApi.Models
         /// Referencia a la venta completa a la que pertenece este detalle.
         /// Se ignora en la serialización JSON para evitar ciclos.
         /// </summary>
-        [JsonIgnore]
         public Venta? Venta { get; set; }
 
         /// <summary>

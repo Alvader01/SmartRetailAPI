@@ -66,29 +66,30 @@ public class DetallesVentaController : ControllerBase
 
         foreach (var detalle in detalles)
         {
-            // Buscar detalle existente por clave compuesta
+            // Desvincular referencias de navegación por seguridad
+            detalle.Producto = null;
+            detalle.Venta = null;
+
             var detalleExistente = await _context.DetallesVenta
-                .FirstOrDefaultAsync(d => d.VentaId == detalle.VentaId &&
-                                          d.ProductoId == detalle.ProductoId &&
-                                          d.TiendaId == detalle.TiendaId);
+                .FirstOrDefaultAsync(d =>
+                    d.VentaId == detalle.VentaId &&
+                    d.ProductoId == detalle.ProductoId &&
+                    d.TiendaId == detalle.TiendaId);
 
             if (detalleExistente == null)
             {
-                // Si no existe, agregar nuevo detalle
                 _context.DetallesVenta.Add(detalle);
             }
             else
             {
-                // Si existe, actualizar campos relevantes
                 detalleExistente.Cantidad = detalle.Cantidad;
                 detalleExistente.Subtotal = detalle.Subtotal;
-                // No se actualizan referencias de navegación para evitar conflictos
             }
         }
 
         await _context.SaveChangesAsync();
 
-        // Retorna un resultado con la cantidad de registros procesados (insertados + actualizados)
         return Ok(new { processedCount = detalles.Count });
     }
+
 }
