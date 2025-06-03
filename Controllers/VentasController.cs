@@ -39,7 +39,7 @@ public class VentasController : ControllerBase
                 {
                     v.Cliente!.ClienteId,
                     v.Cliente.Nombre,
-                    v.Cliente.Email
+                    v.Cliente.Correo
                     // Otros campos de Cliente que quieras exponer
                 }
                 // No incluimos DetallesVenta aquí
@@ -61,9 +61,9 @@ public class VentasController : ControllerBase
     public async Task<ActionResult<object>> Get(Guid id, string tiendaId)
     {
         var venta = await _context.Ventas
-            .Include(v => v.Cliente) // Incluir Cliente
+            .Include(v => v.Cliente)
             .Include(v => v.DetallesVenta!)
-                .ThenInclude(dv => dv.Producto) // Incluir Producto en cada detalle
+                .ThenInclude(dv => dv.Producto)
             .Where(v => v.VentaId == id && v.TiendaId == tiendaId)
             .Select(v => new
             {
@@ -76,7 +76,7 @@ public class VentasController : ControllerBase
                 {
                     v.Cliente!.ClienteId,
                     v.Cliente.Nombre,
-                    v.Cliente.Email
+                    v.Cliente.Correo
                 },
                 DetallesVenta = v.DetallesVenta!.Select(dv => new
                 {
