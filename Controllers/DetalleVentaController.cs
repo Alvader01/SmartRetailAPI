@@ -22,9 +22,28 @@ public class DetallesVentaController : ControllerBase
     /// Considera que esto puede devolver muchos datos si la base es grande.
     /// </summary>
     /// <returns>Lista de objetos DetalleVenta.</returns>
+    /// <summary>
+    /// Obtiene todos los detalles de venta almacenados en la base de datos.
+    /// Devuelve solo los campos esenciales y las claves primarias (VentaId, ProductoId).
+    /// </summary>
+    /// <returns>Lista de detalles de venta con campos básicos.</returns>
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<DetalleVenta>>> Get() =>
-        await _context.DetallesVenta.ToListAsync();
+    public async Task<ActionResult<IEnumerable<object>>> Get()
+    {
+        var detalles = await _context.DetallesVenta
+            .Select(d => new
+            {
+                d.VentaId,
+                d.ProductoId,
+                d.TiendaId,
+                d.Cantidad,
+                d.Subtotal
+            })
+            .ToListAsync();
+
+        return Ok(detalles);
+    }
+
 
     /// <summary>
     /// Obtiene un detalle de venta específico por su clave compuesta: VentaId, ProductoId y TiendaId.
@@ -35,10 +54,19 @@ public class DetallesVentaController : ControllerBase
     /// <param name="tiendaId">Identificador de la tienda.</param>
     /// <returns>DetalleVenta encontrado o NotFound si no existe.</returns>
     [HttpGet("{ventaId}/{productoId}/{tiendaId}")]
-    public async Task<ActionResult<DetalleVenta>> Get(Guid ventaId, Guid productoId, string tiendaId)
+    public async Task<ActionResult<object>> Get(Guid ventaId, Guid productoId, string tiendaId)
     {
         var detalle = await _context.DetallesVenta
-            .FirstOrDefaultAsync(d => d.VentaId == ventaId && d.ProductoId == productoId && d.TiendaId == tiendaId);
+            .Where(d => d.VentaId == ventaId && d.ProductoId == productoId && d.TiendaId == tiendaId)
+            .Select(d => new
+            {
+                d.VentaId,
+                d.ProductoId,
+                d.TiendaId,
+                d.Cantidad,
+                d.Subtotal
+            })
+            .FirstOrDefaultAsync();
 
         if (detalle == null)
         {
@@ -91,5 +119,4 @@ public class DetallesVentaController : ControllerBase
 
         return Ok(new { processedCount = detalles.Count });
     }
-
 }

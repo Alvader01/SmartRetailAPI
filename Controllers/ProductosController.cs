@@ -26,10 +26,22 @@ public class ProductosController : ControllerBase
     /// </summary>
     /// <returns>Lista de objetos Producto.</returns>
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Producto>>> Get()
+    public async Task<ActionResult<IEnumerable<object>>> Get()
     {
-        return await _context.Productos.ToListAsync();
+        var productos = await _context.Productos
+            .Select(p => new
+            {
+                p.ProductoId,
+                p.TiendaId,
+                p.Nombre,
+                p.Precio,
+                p.Stock
+            })
+            .ToListAsync();
+
+        return Ok(productos);
     }
+
 
     /// <summary>
     /// Obtiene un producto específico por su ProductoId y TiendaId.

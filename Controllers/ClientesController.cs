@@ -23,8 +23,22 @@ public class ClientesController : ControllerBase
     /// </summary>
     /// <returns>Lista de clientes en formato IEnumerable.</returns>
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Cliente>>> Get() =>
-        await _context.Clientes.ToListAsync();
+    public async Task<ActionResult<IEnumerable<object>>> Get()
+    {
+        // Considera devolver solo campos necesarios y omitir la colección Ventas para no cargar datos innecesarios
+        var clientes = await _context.Clientes
+            .Select(c => new
+            {
+                c.ClienteId,
+                c.TiendaId,
+                c.Nombre,
+                c.Correo,
+                c.Telefono
+            })
+            .ToListAsync();
+
+        return Ok(clientes);
+    }
 
     /// <summary>
     /// Obtiene un cliente específico por su clave compuesta ClienteId y TiendaId.
@@ -34,17 +48,24 @@ public class ClientesController : ControllerBase
     /// <param name="tiendaId">Identificador de la tienda.</param>
     /// <returns>Cliente encontrado o NotFound si no existe.</returns>
     [HttpGet("{clienteId}/{tiendaId}")]
-    public async Task<ActionResult<Cliente>> Get(Guid clienteId, string tiendaId)
+    public async Task<ActionResult<object>> Get(Guid clienteId, string tiendaId)
     {
         var cliente = await _context.Clientes
-            .FirstOrDefaultAsync(c => c.ClienteId == clienteId && c.TiendaId == tiendaId);
+            .Where(c => c.ClienteId == clienteId && c.TiendaId == tiendaId)
+            .Select(c => new
+            {
+                c.ClienteId,
+                c.TiendaId,
+                c.Nombre,
+                c.Correo,
+                c.Telefono
+            })
+            .FirstOrDefaultAsync();
 
         if (cliente == null)
-        {
             return NotFound();
-        }
 
-        return Ok(cliente); // Devolver Ok explícitamente es buena práctica para claridad
+        return Ok(cliente);
     }
 
     /// <summary>
@@ -65,28 +86,24 @@ public class ClientesController : ControllerBase
 
         foreach (var cliente in clientes)
         {
-            // Buscar cliente existente por clave compuesta
             var clienteExistente = await _context.Clientes
                 .FirstOrDefaultAsync(c => c.ClienteId == cliente.ClienteId && c.TiendaId == cliente.TiendaId);
 
             if (clienteExistente == null)
             {
-                // Si no existe, agregar nuevo
                 _context.Clientes.Add(cliente);
             }
             else
             {
-                // Si existe, actualizar campos relevantes
                 clienteExistente.Nombre = cliente.Nombre;
                 clienteExistente.Correo = cliente.Correo;
                 clienteExistente.Telefono = cliente.Telefono;
-                // No se actualiza la colección Ventas aquí para evitar problemas con entidades relacionadas
+                
             }
         }
 
         await _context.SaveChangesAsync();
 
-        // Retorna un resultado con la cantidad de registros procesados (insertados + actualizados)
         return Ok(new { processedCount = clientes.Count });
     }
 }

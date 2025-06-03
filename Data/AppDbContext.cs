@@ -10,7 +10,7 @@ namespace SmartRetailApi.Data
     {
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
-        // Definición de DbSets que representan las tablas
+        // DbSets que representan las tablas en la base de datos
         public DbSet<Producto> Productos { get; set; }
         public DbSet<Venta> Ventas { get; set; }
         public DbSet<DetalleVenta> DetallesVenta { get; set; }
@@ -30,7 +30,7 @@ namespace SmartRetailApi.Data
 
                 entity.Property(e => e.ProductoId)
                       .HasColumnName("producto_id");
-                // Los GUIDs se asignan manualmente
+                // GUIDs asignados manualmente en la aplicación
 
                 entity.Property(e => e.TiendaId).HasColumnName("tiendaid");
                 entity.Property(e => e.Nombre).HasColumnName("nombre");
@@ -43,7 +43,7 @@ namespace SmartRetailApi.Data
             {
                 entity.ToTable("cliente");
 
-                entity.HasKey(e => new { e.ClienteId, e.TiendaId });
+                entity.HasKey(e => new { e.ClienteId, e.TiendaId }); // Clave primaria compuesta
 
                 entity.Property(e => e.ClienteId).HasColumnName("cliente_id");
                 entity.Property(e => e.TiendaId).HasColumnName("tiendaid");
@@ -57,7 +57,7 @@ namespace SmartRetailApi.Data
             {
                 entity.ToTable("venta");
 
-                entity.HasKey(e => new { e.VentaId, e.TiendaId });
+                entity.HasKey(e => new { e.VentaId, e.TiendaId }); // Clave primaria compuesta
 
                 entity.Property(e => e.VentaId).HasColumnName("venta_id");
                 entity.Property(e => e.TiendaId).HasColumnName("tiendaid");
@@ -70,6 +70,7 @@ namespace SmartRetailApi.Data
                       .WithMany(c => c.Ventas)
                       .HasForeignKey(e => new { e.ClienteId, e.TiendaId })
                       .OnDelete(DeleteBehavior.Restrict);
+                // Restrict evita que se borren ventas si se borra cliente
             });
 
             // ====== DetalleVenta ======
@@ -77,7 +78,7 @@ namespace SmartRetailApi.Data
             {
                 entity.ToTable("detalle_venta");
 
-                entity.HasKey(e => new { e.VentaId, e.ProductoId, e.TiendaId });
+                entity.HasKey(e => new { e.VentaId, e.ProductoId, e.TiendaId }); // Clave primaria compuesta
 
                 entity.Property(e => e.VentaId).HasColumnName("venta_id");
                 entity.Property(e => e.ProductoId).HasColumnName("producto_id");
@@ -90,12 +91,14 @@ namespace SmartRetailApi.Data
                       .WithMany(v => v.DetallesVenta)
                       .HasForeignKey(e => new { e.VentaId, e.TiendaId })
                       .OnDelete(DeleteBehavior.Cascade);
+                // Al borrar una venta, se borran sus detalles
 
                 // Relación con Producto (clave foránea compuesta)
                 entity.HasOne(e => e.Producto)
                       .WithMany()
                       .HasForeignKey(e => new { e.ProductoId, e.TiendaId })
                       .OnDelete(DeleteBehavior.Restrict);
+                // No se permite borrar un producto si está en detalles de venta
             });
         }
     }

@@ -20,15 +20,35 @@ public class VentasController : ControllerBase
     /// <summary>
     /// Obtiene todas las ventas junto con sus detalles asociados.
     /// Considerar paginación o filtros si la tabla es muy grande para mejorar rendimiento.
+    /// Devuelve todos los datos de venta y en cada detalle incluye ProductoId y demás campos.
     /// </summary>
     /// <returns>Lista de objetos Venta con sus detalles.</returns>
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Venta>>> Get() =>
-    await _context.Ventas
-        .Include(v => v.Cliente) // Incluir Cliente
-        .Include(v => v.DetallesVenta!)
-            .ThenInclude(dv => dv.Producto) // Incluir Producto en cada detalle
-        .ToListAsync();
+    public async Task<ActionResult<IEnumerable<object>>> Get()
+    {
+        var ventas = await _context.Ventas
+            .Include(v => v.Cliente) // Incluir Cliente
+            .Select(v => new
+            {
+                v.VentaId,
+                v.TiendaId,
+                v.Fecha,
+                v.Total,
+                v.ClienteId,
+                Cliente = new
+                {
+                    v.Cliente!.ClienteId,
+                    v.Cliente.Nombre,
+                    v.Cliente.Email
+                    // Otros campos de Cliente que quieras exponer
+                }
+                // No incluimos DetallesVenta aquí
+            })
+            .ToListAsync();
+
+        return Ok(ventas);
+    }
+
 
     /// <summary>
     /// Obtiene una venta específica por su VentaId y TiendaId.
@@ -38,13 +58,42 @@ public class VentasController : ControllerBase
     /// <param name="tiendaId">Identificador de la tienda (TiendaId).</param>
     /// <returns>Venta con sus detalles o NotFound si no existe.</returns>
     [HttpGet("{id}/{tiendaId}")]
-    public async Task<ActionResult<Venta>> Get(Guid id, string tiendaId)
+    public async Task<ActionResult<object>> Get(Guid id, string tiendaId)
     {
         var venta = await _context.Ventas
             .Include(v => v.Cliente) // Incluir Cliente
             .Include(v => v.DetallesVenta!)
                 .ThenInclude(dv => dv.Producto) // Incluir Producto en cada detalle
-            .FirstOrDefaultAsync(v => v.VentaId == id && v.TiendaId == tiendaId);
+            .Where(v => v.VentaId == id && v.TiendaId == tiendaId)
+            .Select(v => new
+            {
+                v.VentaId,
+                v.TiendaId,
+                v.Fecha,
+                v.Total,
+                v.ClienteId,
+                Cliente = new
+                {
+                    v.Cliente!.ClienteId,
+                    v.Cliente.Nombre,
+                    v.Cliente.Email
+                },
+                DetallesVenta = v.DetallesVenta!.Select(dv => new
+                {
+                    dv.VentaId,
+                    dv.ProductoId,
+                    dv.TiendaId,
+                    dv.Cantidad,
+                    dv.Subtotal,
+                    Producto = new
+                    {
+                        dv.Producto!.ProductoId,
+                        dv.Producto.Nombre,
+                        dv.Producto.Precio
+                    }
+                })
+            })
+            .FirstOrDefaultAsync();
 
         if (venta == null)
             return NotFound();
@@ -113,6 +162,4 @@ public class VentasController : ControllerBase
 
         return Ok(new { upsertedCount = ventas.Count });
     }
-
-
 }
